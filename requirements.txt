@@ -1,0 +1,12 @@
+openai
+langgraph
+streamlit
+pydantic
+pymupdf
+python-docx
+chromadb
+sentence-transformers
+scikit-learn
+pandas
+openpyxl
+python-dotenv
