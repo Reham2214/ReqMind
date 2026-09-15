@@ -1,545 +1,558 @@
-import streamlit as st
 import pandas as pd
+import streamlit as st
 
 from graph import graph
 from utils.file_parser import extract_text
-from evaluation.evaluate import evaluate
 
+
+# ==========================================================
+# Page Configuration
+# ==========================================================
 
 st.set_page_config(
     page_title="ReqMind",
-    page_icon="📋",
+    page_icon="",
     layout="wide",
 )
 
 
-# =========================================================
-# HEADER
-# =========================================================
+# ==========================================================
+# Session State
+# ==========================================================
+
+if "analysis_results" not in st.session_state:
+    st.session_state.analysis_results = []
+
+if "analysis_completed" not in st.session_state:
+    st.session_state.analysis_completed = False
+
+
+# ==========================================================
+# Header
+# ==========================================================
 
 st.title("ReqMind")
 
-st.subheader(
-    "AI-Powered Software Requirements Analysis"
+st.write(
+    "AI-powered software requirements analysis system"
 )
+
+st.divider()
+
+
+# ==========================================================
+# File Upload
+# ==========================================================
+
+st.subheader("Upload Requirements")
 
 st.write(
-    """
-Upload a software requirements document and ReqMind
-will analyze the requirements for ambiguity,
-incompleteness, inconsistency, duplication,
-conflicts, and non-verifiable requirements.
-"""
+    "Upload a PDF, DOCX, TXT, or CSV file containing "
+    "your software requirements."
 )
 
-
-# =========================================================
-# EVALUATION METHODOLOGY
-# =========================================================
-
-with st.expander(
-    "System Evaluation",
-    expanded=True,
-):
-
-    st.markdown(
-        """
-### System will be evaluated using:
-
-- **Precision**
-- **Recall**
-- **F1 Score**
-- **Human evaluation of explanations and recommendations**
-
-**Precision, Recall, and F1 Score** will be calculated
-by comparing ReqMind predictions against a labeled
-Ground Truth dataset.
-
-**Human evaluation** will assess the quality,
-correctness, clarity, and usefulness of the generated
-explanations and recommendations.
-"""
-    )
-
-
-# =========================================================
-# FILE UPLOAD
-# =========================================================
-
 uploaded_file = st.file_uploader(
-    "Upload Requirements Document",
+    "Choose a file",
     type=[
         "pdf",
         "docx",
         "txt",
+        "csv",
     ],
 )
 
 
-if uploaded_file:
+# ==========================================================
+# Analyze Uploaded File
+# ==========================================================
+
+if uploaded_file is not None:
 
     st.success(
-        f"Uploaded: {uploaded_file.name}"
+        f"Uploaded file: {uploaded_file.name}"
     )
 
-    analyze_button = st.button(
+    if st.button(
         "Analyze Requirements",
         type="primary",
         use_container_width=True,
-    )
-
-    if analyze_button:
+    ):
 
         try:
 
-            # =================================================
-            # STEP 1 — READ DOCUMENT
-            # =================================================
+            # --------------------------------------------------
+            # Reset Previous Results
+            # --------------------------------------------------
 
-            with st.status(
-                "Reading requirements document...",
-                expanded=True,
-            ) as document_status:
+            st.session_state.analysis_results = []
+            st.session_state.analysis_completed = False
 
-                document_status.write(
-                    "Extracting text from the uploaded file..."
+            # --------------------------------------------------
+            # Read Uploaded File
+            # --------------------------------------------------
+
+            file_bytes = uploaded_file.getvalue()
+
+            # --------------------------------------------------
+            # CSV Handling
+            # --------------------------------------------------
+
+            if uploaded_file.name.lower().endswith(".csv"):
+
+                csv_df = pd.read_csv(
+                    uploaded_file
                 )
 
-                file_bytes = (
-                    uploaded_file.getvalue()
+                if "Requirement" not in csv_df.columns:
+
+                    st.error(
+                        "CSV file must contain a 'Requirement' column."
+                    )
+
+                    st.stop()
+
+                requirement_lines = []
+
+                for index, row in csv_df.iterrows():
+
+                    requirement_text = str(
+                        row["Requirement"]
+                    ).strip()
+
+                    if not requirement_text:
+                        continue
+
+                    if "ID" in csv_df.columns:
+
+                        requirement_id = str(
+                            row["ID"]
+                        ).strip()
+
+                        requirement_lines.append(
+                            f"{requirement_id}: {requirement_text}"
+                        )
+
+                    else:
+
+                        requirement_lines.append(
+                            requirement_text
+                        )
+
+                document_text = "\n".join(
+                    requirement_lines
                 )
+
+            # --------------------------------------------------
+            # PDF / DOCX / TXT Handling
+            # --------------------------------------------------
+
+            else:
 
                 document_text = extract_text(
                     uploaded_file.name,
                     file_bytes,
                 )
 
-                if not document_text.strip():
+            # --------------------------------------------------
+            # Validate Extracted Text
+            # --------------------------------------------------
 
-                    document_status.update(
-                        label="Document could not be read.",
-                        state="error",
+            if not document_text.strip():
+
+                st.error(
+                    "No readable requirements were found "
+                    "in the uploaded file."
+                )
+
+                st.stop()
+
+            # --------------------------------------------------
+            # Analysis Progress
+            # --------------------------------------------------
+
+            st.subheader(
+                "Analysis Progress"
+            )
+
+            extraction_status = st.empty()
+
+            quality_status = st.empty()
+
+            relationship_status = st.empty()
+
+            recommendation_status = st.empty()
+
+            extraction_status.info(
+                "1. Extracting requirements..."
+            )
+
+            quality_status.info(
+                "2. Quality Analysis — waiting..."
+            )
+
+            relationship_status.info(
+                "3. Relationship Analysis — waiting..."
+            )
+
+            recommendation_status.info(
+                "4. Recommendations & Knowledge Retrieval — waiting..."
+            )
+
+            # --------------------------------------------------
+            # Run ReqMind
+            # --------------------------------------------------
+
+            final_results = []
+
+            for update in graph.stream(
+                {
+                    "document_text": document_text
+                },
+                stream_mode="updates",
+            ):
+
+                # ----------------------------------------------
+                # Extraction
+                # ----------------------------------------------
+
+                if "extraction" in update:
+
+                    extraction_status.success(
+                        "1. Extraction completed"
                     )
 
-                    st.error(
-                        "The uploaded document does not contain readable text."
+                    quality_status.info(
+                        "2. Quality Analysis — running..."
                     )
 
-                    st.stop()
+                    relationship_status.info(
+                        "3. Relationship Analysis — running..."
+                    )
 
-                document_status.write(
-                    "Document text extracted successfully."
-                )
+                # ----------------------------------------------
+                # Quality Analysis
+                # ----------------------------------------------
 
-                document_status.update(
-                    label="Document loaded successfully.",
-                    state="complete",
-                    expanded=False,
-                )
+                if "quality_analysis" in update:
 
+                    quality_status.success(
+                        "2. Quality Analysis completed"
+                    )
 
-            # =================================================
-            # STEP 2 — RUN REQMIND
-            # =================================================
+                # ----------------------------------------------
+                # Relationship Analysis
+                # ----------------------------------------------
 
-            with st.status(
-                "ReqMind is analyzing the requirements...",
-                expanded=True,
-            ) as analysis_status:
+                if "relationship_analysis" in update:
 
-                analysis_status.write(
-                    "Running requirement extraction..."
-                )
+                    relationship_status.success(
+                        "3. Relationship Analysis completed"
+                    )
 
-                result = graph.invoke(
-                    {
-                        "document_text": document_text
-                    }
-                )
+                # ----------------------------------------------
+                # Recommendations
+                # ----------------------------------------------
 
-                final_results = result[
-                    "final_results"
-                ]
+                if "recommendation" in update:
 
-                analysis_status.write(
-                    f"Analyzed {len(final_results)} requirements."
-                )
+                    recommendation_status.success(
+                        "4. Recommendations & Knowledge Retrieval completed"
+                    )
 
-                analysis_status.update(
-                    label="Requirement analysis completed.",
-                    state="complete",
-                    expanded=False,
-                )
+                    final_results = update[
+                        "recommendation"
+                    ].get(
+                        "final_results",
+                        [],
+                    )
 
+            # --------------------------------------------------
+            # Save Results
+            # --------------------------------------------------
 
-            # =================================================
-            # STEP 3 — CREATE PREDICTIONS
-            # =================================================
-
-            predictions = []
-
-            for item in final_results:
-
-                predictions.append(
-                    {
-                        "ID": item.requirement_id,
-                        "Issue_Label": item.issue_label,
-                        "Severity": item.severity,
-                    }
-                )
-
-
-            predictions_df = pd.DataFrame(
-                predictions
-            )
-
-
-            # =================================================
-            # SAVE PREDICTIONS
-            # =================================================
-
-            predictions_df.to_csv(
-                "data/predictions.csv",
-                index=False,
-                encoding="utf-8-sig",
-            )
-
-
-            # =================================================
-            # SUCCESS
-            # =================================================
-
-            st.success(
-                f"Analysis completed. "
-                f"{len(final_results)} requirements analyzed."
-            )
-
-
-            # =================================================
-            # RESULTS SUMMARY
-            # =================================================
-
-            st.divider()
-
-            st.header(
-                "Analysis Summary"
-            )
-
-
-            total_requirements = len(
+            st.session_state.analysis_results = (
                 final_results
             )
 
-            issue_count = sum(
-                1
-                for item in final_results
-                if item.issue_label != "No Issue"
+            st.session_state.analysis_completed = True
+
+            st.success(
+                "Analysis completed successfully."
             )
-
-            no_issue_count = sum(
-                1
-                for item in final_results
-                if item.issue_label == "No Issue"
-            )
-
-
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-
-                st.metric(
-                    "Requirements",
-                    total_requirements,
-                )
-
-            with col2:
-
-                st.metric(
-                    "Issues Detected",
-                    issue_count,
-                )
-
-            with col3:
-
-                st.metric(
-                    "No Issue",
-                    no_issue_count,
-                )
-
-
-            # =================================================
-            # REQUIREMENT RESULTS
-            # =================================================
-
-            st.divider()
-
-            st.header(
-                "Requirements Analysis"
-            )
-
-
-            for item in final_results:
-
-                with st.container():
-
-                    st.subheader(
-                        item.requirement_id
-                    )
-
-                    st.markdown(
-                        f"""
-**Requirement**
-
-{item.requirement}
-"""
-                    )
-
-
-                    col1, col2 = st.columns(2)
-
-
-                    with col1:
-
-                        st.markdown(
-                            f"""
-**Issue**
-
-{item.issue_label}
-"""
-                        )
-
-
-                    with col2:
-
-                        st.markdown(
-                            f"""
-**Severity**
-
-{item.severity}
-"""
-                        )
-
-
-                    st.markdown(
-                        f"""
-**Explanation**
-
-{item.explanation}
-"""
-                    )
-
-
-                    st.markdown(
-                        f"""
-**Evidence**
-
-{item.evidence}
-"""
-                    )
-
-
-                    st.markdown(
-                        f"""
-**Recommendation**
-
-{item.recommendation}
-"""
-                    )
-
-
-                    st.markdown(
-                        f"""
-**Improved Requirement**
-
-{item.improved_requirement}
-"""
-                    )
-
-
-                    if item.sources:
-
-                        with st.expander(
-                            "Knowledge Sources"
-                        ):
-
-                            for source in item.sources:
-
-                                st.write(
-                                    f"- {source}"
-                                )
-
-
-                    st.divider()
-
-
-            # =================================================
-            # EVALUATION
-            # =================================================
-
-            st.header(
-                "ReqMind Evaluation"
-            )
-
-
-            st.markdown(
-                """
-### System will be evaluated using:
-
-1. **Precision**
-2. **Recall**
-3. **F1 Score**
-4. **Human evaluation of explanations and recommendations**
-"""
-            )
-
-
-            with st.spinner(
-                "Calculating evaluation metrics..."
-            ):
-
-                evaluation = evaluate()
-
-
-            # =================================================
-            # EVALUATION ERROR / MISSING GROUND TRUTH
-            # =================================================
-
-            if evaluation.get("error"):
-
-                st.warning(
-                    evaluation["error"]
-                )
-
-                st.info(
-                    """
-Automatic Precision, Recall, and F1 Score
-will be available once the Ground Truth dataset
-is prepared.
-
-The current ReqMind analysis results are still
-available above.
-"""
-                )
-
-
-            else:
-
-                st.success(
-                    "Automatic evaluation completed."
-                )
-
-
-                # ---------------------------------------------
-                # METRICS
-                # ---------------------------------------------
-
-                col1, col2, col3 = st.columns(3)
-
-
-                with col1:
-
-                    st.metric(
-                        "Precision",
-                        f"{evaluation['precision']:.2%}",
-                    )
-
-
-                with col2:
-
-                    st.metric(
-                        "Recall",
-                        f"{evaluation['recall']:.2%}",
-                    )
-
-
-                with col3:
-
-                    st.metric(
-                        "F1 Score",
-                        f"{evaluation['f1']:.2%}",
-                    )
-
-
-                st.write(
-                    f"Requirements evaluated: "
-                    f"{evaluation['requirements_evaluated']}"
-                )
-
-
-                # ---------------------------------------------
-                # CLASSIFICATION REPORT
-                # ---------------------------------------------
-
-                st.subheader(
-                    "Classification Report"
-                )
-
-                st.dataframe(
-                    evaluation["report"],
-                    use_container_width=True,
-                )
-
-
-                # ---------------------------------------------
-                # CONFUSION MATRIX
-                # ---------------------------------------------
-
-                st.subheader(
-                    "Confusion Matrix"
-                )
-
-                st.dataframe(
-                    evaluation["confusion_matrix"],
-                    use_container_width=True,
-                )
-
-
-            # =================================================
-            # HUMAN EVALUATION
-            # =================================================
-
-            st.divider()
-
-            st.subheader(
-                "Human Evaluation"
-            )
-
-            st.write(
-                """
-The explanations and recommendations generated
-by ReqMind will be evaluated by human reviewers
-based on criteria such as correctness, clarity,
-relevance, and usefulness.
-"""
-            )
-
-
-            # =================================================
-            # DOWNLOAD
-            # =================================================
-
-            st.divider()
-
-            csv_data = (
-                predictions_df
-                .to_csv(index=False)
-                .encode("utf-8-sig")
-            )
-
-
-            st.download_button(
-                label="Download Predictions CSV",
-                data=csv_data,
-                file_name="predictions.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
-
 
         except Exception as e:
 
             st.error(
-                "An error occurred during analysis."
+                f"Analysis failed: {e}"
             )
 
-            st.exception(e)
+
+# ==========================================================
+# Analysis Results
+# ==========================================================
+
+results = st.session_state.analysis_results
+
+
+if (
+    st.session_state.analysis_completed
+    and results
+):
+
+    st.divider()
+
+    st.subheader(
+        f"Analysis Results ({len(results)} Requirements)"
+    )
+
+    # ------------------------------------------------------
+    # Summary Metrics
+    # ------------------------------------------------------
+
+    total_requirements = len(
+        results
+    )
+
+    issues_detected = sum(
+        1
+        for result in results
+        if result.issue_label != "No Issue"
+    )
+
+    no_issues = sum(
+        1
+        for result in results
+        if result.issue_label == "No Issue"
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        st.metric(
+            "Requirements",
+            total_requirements,
+        )
+
+    with col2:
+
+        st.metric(
+            "Issues Detected",
+            issues_detected,
+        )
+
+    with col3:
+
+        st.metric(
+            "No Issues",
+            no_issues,
+        )
+
+    st.divider()
+
+    # ------------------------------------------------------
+    # Requirement Selector
+    # ------------------------------------------------------
+
+    requirement_options = [
+        (
+            f"{result.requirement_id} — "
+            f"{result.requirement}"
+        )
+        for result in results
+    ]
+
+    selected_requirement = st.selectbox(
+        "Select a requirement",
+        requirement_options,
+    )
+
+    selected_index = (
+        requirement_options.index(
+            selected_requirement
+        )
+    )
+
+    selected_result = results[
+        selected_index
+    ]
+
+    # ------------------------------------------------------
+    # Selected Requirement
+    # ------------------------------------------------------
+
+    st.subheader(
+        selected_result.requirement_id
+    )
+
+    st.write(
+        "### Requirement"
+    )
+
+    st.info(
+        selected_result.requirement
+    )
+
+    # ------------------------------------------------------
+    # Issue + Severity
+    # ------------------------------------------------------
+
+    result_col1, result_col2 = st.columns(2)
+
+    with result_col1:
+
+        st.write(
+            "**Issue**"
+        )
+
+        st.write(
+            selected_result.issue_label
+        )
+
+    with result_col2:
+
+        st.write(
+            "**Severity**"
+        )
+
+        st.write(
+            selected_result.severity
+        )
+
+    st.divider()
+
+    # ------------------------------------------------------
+    # Explanation
+    # ------------------------------------------------------
+
+    st.write(
+        "### Explanation"
+    )
+
+    st.write(
+        selected_result.explanation
+    )
+
+    # ------------------------------------------------------
+    # Evidence
+    # ------------------------------------------------------
+
+    st.write(
+        "### Evidence"
+    )
+
+    if selected_result.evidence:
+
+        st.write(
+            selected_result.evidence
+        )
+
+    else:
+
+        st.write(
+            "No specific evidence provided."
+        )
+
+    # ------------------------------------------------------
+    # Recommendation
+    # ------------------------------------------------------
+
+    st.write(
+        "### Recommendation"
+    )
+
+    st.write(
+        selected_result.recommendation
+    )
+
+    # ------------------------------------------------------
+    # Improved Requirement
+    # ------------------------------------------------------
+
+    st.write(
+        "### Improved Requirement"
+    )
+
+    st.success(
+        selected_result.improved_requirement
+    )
+
+    # ------------------------------------------------------
+    # Knowledge Sources
+    # ------------------------------------------------------
+
+    st.write(
+        "### Knowledge Sources"
+    )
+
+    if selected_result.sources:
+
+        for source in selected_result.sources:
+
+            st.write(
+                f"- {source}"
+            )
+
+    else:
+
+        st.write(
+            "No knowledge sources were retrieved."
+        )
+
+    # ======================================================
+    # Download Results
+    # ======================================================
+
+    st.divider()
+
+    st.subheader(
+        "Download Analysis Results"
+    )
+
+    st.write(
+        "Export the complete analysis as a CSV file "
+        "for easy review, sharing, documentation, "
+        "and further processing."
+    )
+
+    # ------------------------------------------------------
+    # Prepare Download Data
+    # ------------------------------------------------------
+
+    download_data = []
+
+    for result in results:
+
+        download_data.append(
+            {
+                "Requirement ID": result.requirement_id,
+                "Requirement": result.requirement,
+                "Issue Label": result.issue_label,
+                "Severity": result.severity,
+                "Explanation": result.explanation,
+                "Evidence": result.evidence,
+                "Recommendation": result.recommendation,
+                "Improved Requirement": result.improved_requirement,
+                "Sources": ", ".join(
+                    result.sources
+                ),
+            }
+        )
+
+    download_df = pd.DataFrame(
+        download_data
+    )
+
+    csv_data = download_df.to_csv(
+        index=False
+    ).encode(
+        "utf-8-sig"
+    )
+
+    st.download_button(
+        label="Download Analysis Results",
+        data=csv_data,
+        file_name="reqmind_analysis.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )

@@ -13,6 +13,7 @@ from utils.schemas import (
     RelationshipAnalysisResult,
 )
 
+
 load_dotenv()
 
 client = OpenAI(
@@ -24,41 +25,52 @@ MODEL = os.getenv(
     "gpt-4o-mini"
 )
 
-# Maximum number of relationship-analysis API requests
-# running at the same time.
-MAX_WORKERS = 4
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
-
-# Load embedding model once.
 embedding_model = SentenceTransformer(
-    "all-MiniLM-L6-v2"
+    EMBEDDING_MODEL
 )
 
 
 SYSTEM_PROMPT = """
 You are the Relationship Analysis Agent in ReqMind.
 
-Compare two software requirements and determine whether they have a relationship problem.
+Your responsibility is to compare TWO software requirements.
 
-Allowed labels:
+You detect ONLY:
 
-No Issue:
-The two requirements can coexist without a problem.
+1. No Issue
+2. Duplication
+3. Conflict
+4. Inconsistency
+
+Definitions:
 
 Duplication:
-Both requirements express the same or substantially overlapping behavior.
+Both requirements express the same or substantially overlapping
+behavior.
 
 Conflict:
-The requirements impose mutually incompatible behaviors or constraints.
+The requirements impose mutually incompatible behaviors,
+constraints, rules, or values.
 
 Inconsistency:
-The requirements use concepts, rules, values, or behaviors that do not agree consistently.
+The requirements refer to concepts, rules, values, or behaviors
+that do not agree consistently, even if they are not directly
+mutually exclusive.
+
+No Issue:
+The two requirements can coexist without a meaningful relationship
+problem.
 
 Rules:
-- Do not invent information.
-- Use only the two provided requirements.
-- Explain exactly why the relationship exists.
-- Use the requirement IDs in the evidence.
+
+1. Compare only the two provided requirements.
+2. Do not use information that is not present in the requirements.
+3. Do not invent missing information.
+4. Explain exactly why the relationship exists.
+5. Evidence must reference the provided requirement IDs.
+6. Return "No Issue" when there is no meaningful relationship problem.
 """
 
 
@@ -78,6 +90,7 @@ def find_similar_pairs(
     embeddings = embedding_model.encode(
         texts,
         normalize_embeddings=True,
+        show_progress_bar=False,
     )
 
     similarity_matrix = cosine_similarity(
@@ -88,7 +101,7 @@ def find_similar_pairs(
 
     for i, j in combinations(
         range(len(requirements)),
-        2,
+        2
     ):
 
         similarity = similarity_matrix[i][j]
@@ -112,15 +125,26 @@ def analyze_pair(
 
     user_prompt = f"""
 Requirement A:
-ID: {requirement_a.id}
-Text: {requirement_a.text}
+
+ID:
+{requirement_a.id}
+
+Text:
+{requirement_a.text}
+
 
 Requirement B:
-ID: {requirement_b.id}
-Text: {requirement_b.text}
 
-Compare them.
+ID:
+{requirement_b.id}
+
+Text:
+{requirement_b.text}
+
+
+Compare the two requirements.
 """
+
 
     response = client.beta.chat.completions.parse(
         model=MODEL,
@@ -153,9 +177,13 @@ def analyze_relationships(
             issues=[]
         )
 
-    # Analyze candidate pairs in parallel.
+    max_workers = min(
+        4,
+        len(candidate_pairs)
+    )
+
     with ThreadPoolExecutor(
-        max_workers=MAX_WORKERS
+        max_workers=max_workers
     ) as executor:
 
         results = list(
@@ -168,7 +196,6 @@ def analyze_relationships(
             )
         )
 
-    # Keep only actual relationship issues.
     issues = [
         result
         for result in results

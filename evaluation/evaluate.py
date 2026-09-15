@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 import pandas as pd
 
@@ -11,214 +11,364 @@ from sklearn.metrics import (
 )
 
 
-GROUND_TRUTH_PATH = "data/ground_truth.xlsx"
+# =========================================================
+# PATHS
+# =========================================================
+
+DATASET_PATH = Path(
+    "data/ReqMind Dataset.xlsx"
+)
+
+DEFAULT_PREDICTIONS_PATH = Path(
+    "data/predictions.csv"
+)
 
 
-def evaluate():
+# =========================================================
+# LABEL NORMALIZATION
+# =========================================================
 
-    # Check if the Ground Truth file exists
-    if not os.path.exists(GROUND_TRUTH_PATH):
+def normalize_label(label):
 
-        return {
-            "error": (
-                "Ground Truth file not found. "
-                "Automatic evaluation cannot be calculated yet."
-            ),
-            "precision": None,
-            "recall": None,
-            "f1": None,
-            "requirements_evaluated": 0,
-            "report": None,
-            "confusion_matrix": None,
-        }
+    if pd.isna(label):
+        return ""
+
+    label = str(label).strip()
+
+    replacements = {
+        "No issue": "No Issue",
+        "No Issue": "No Issue",
+
+        "Non Verifiable": "Non-verifiable",
+        "Non-verifiable": "Non-verifiable",
+        "non-verifiable": "Non-verifiable",
+
+        "Ambiguous": "Ambiguity",
+        "Ambiguity": "Ambiguity",
+
+        "Incomplete": "Incompleteness",
+        "Incompleteness": "Incompleteness",
+
+        "Inconsistent": "Inconsistency",
+        "Inconsistency": "Inconsistency",
+
+        "Duplicate": "Duplication",
+        "Duplication": "Duplication",
+
+        "Conflict": "Conflict",
+    }
+
+    return replacements.get(
+        label,
+        label,
+    )
+
+
+# =========================================================
+# EVALUATION
+# =========================================================
+
+def evaluate_predictions(
+    predictions_path=DEFAULT_PREDICTIONS_PATH,
+):
 
     try:
 
-        # Read Ground Truth sheet
-        ground_truth = pd.read_excel(
-            GROUND_TRUTH_PATH,
+        predictions_path = Path(
+            predictions_path
+        )
+
+        if not predictions_path.exists():
+
+            return {
+                "success": False,
+                "error": (
+                    f"Predictions file not found: "
+                    f"{predictions_path}"
+                ),
+            }
+
+        if not DATASET_PATH.exists():
+
+            return {
+                "success": False,
+                "error": (
+                    f"Dataset file not found: "
+                    f"{DATASET_PATH}"
+                ),
+            }
+
+        # -------------------------------------------------
+        # Predictions
+        # -------------------------------------------------
+
+        predictions_df = pd.read_csv(
+            predictions_path
+        )
+
+        if "ID" not in predictions_df.columns:
+
+            return {
+                "success": False,
+                "error": (
+                    "Predictions file is missing "
+                    "the ID column."
+                ),
+            }
+
+        if (
+            "Issue_Label"
+            not in predictions_df.columns
+        ):
+
+            return {
+                "success": False,
+                "error": (
+                    "Predictions file is missing "
+                    "the Issue_Label column."
+                ),
+            }
+
+        predictions_df = predictions_df[
+            [
+                "ID",
+                "Issue_Label",
+            ]
+        ].copy()
+
+        # -------------------------------------------------
+        # Ground Truth
+        # -------------------------------------------------
+
+        ground_truth_df = pd.read_excel(
+            DATASET_PATH,
             sheet_name="Ground_Truth",
         )
 
-    except ValueError:
+        if "ID" not in ground_truth_df.columns:
+
+            return {
+                "success": False,
+                "error": (
+                    "Ground_Truth is missing "
+                    "the ID column."
+                ),
+            }
+
+        if (
+            "Issue_Label"
+            not in ground_truth_df.columns
+        ):
+
+            return {
+                "success": False,
+                "error": (
+                    "Ground_Truth is missing "
+                    "the Issue_Label column."
+                ),
+            }
+
+        ground_truth_df = ground_truth_df[
+            [
+                "ID",
+                "Issue_Label",
+            ]
+        ].copy()
+
+        # -------------------------------------------------
+        # Normalize IDs
+        # -------------------------------------------------
+
+        predictions_df["ID"] = (
+            predictions_df["ID"]
+            .astype(str)
+            .str.strip()
+        )
+
+        ground_truth_df["ID"] = (
+            ground_truth_df["ID"]
+            .astype(str)
+            .str.strip()
+        )
+
+        # -------------------------------------------------
+        # Normalize labels
+        # -------------------------------------------------
+
+        predictions_df[
+            "Issue_Label"
+        ] = predictions_df[
+            "Issue_Label"
+        ].apply(
+            normalize_label
+        )
+
+        ground_truth_df[
+            "Issue_Label"
+        ] = ground_truth_df[
+            "Issue_Label"
+        ].apply(
+            normalize_label
+        )
+
+        # -------------------------------------------------
+        # Merge by ID
+        # -------------------------------------------------
+
+        merged_df = pd.merge(
+            ground_truth_df,
+            predictions_df,
+            on="ID",
+            how="inner",
+            suffixes=(
+                "_true",
+                "_pred",
+            ),
+        )
+
+        if merged_df.empty:
+
+            return {
+                "success": False,
+                "error": (
+                    "No matching IDs were found "
+                    "between predictions and Ground_Truth."
+                ),
+            }
+
+        # -------------------------------------------------
+        # Actual labels
+        # -------------------------------------------------
+
+        y_true = merged_df[
+            "Issue_Label_true"
+        ]
+
+        y_pred = merged_df[
+            "Issue_Label_pred"
+        ]
+
+        labels = sorted(
+            set(y_true)
+            | set(y_pred)
+        )
+
+        # -------------------------------------------------
+        # Metrics
+        # -------------------------------------------------
+
+        precision = precision_score(
+            y_true,
+            y_pred,
+            labels=labels,
+            average="weighted",
+            zero_division=0,
+        )
+
+        recall = recall_score(
+            y_true,
+            y_pred,
+            labels=labels,
+            average="weighted",
+            zero_division=0,
+        )
+
+        f1 = f1_score(
+            y_true,
+            y_pred,
+            labels=labels,
+            average="weighted",
+            zero_division=0,
+        )
+
+        # -------------------------------------------------
+        # Classification report
+        # -------------------------------------------------
+
+        report = classification_report(
+            y_true,
+            y_pred,
+            labels=labels,
+            output_dict=True,
+            zero_division=0,
+        )
+
+        # -------------------------------------------------
+        # Confusion matrix
+        # -------------------------------------------------
+
+        matrix = confusion_matrix(
+            y_true,
+            y_pred,
+            labels=labels,
+        ).tolist()
+
+        # -------------------------------------------------
+        # Return
+        # -------------------------------------------------
 
         return {
-            "error": (
-                "The Excel file does not contain a sheet "
-                "named 'Ground_Truth'. "
-                "Please create a sheet with this exact name."
+            "success": True,
+
+            "precision": float(
+                precision
             ),
-            "precision": None,
-            "recall": None,
-            "f1": None,
-            "requirements_evaluated": 0,
-            "report": None,
-            "confusion_matrix": None,
+
+            "recall": float(
+                recall
+            ),
+
+            "f1": float(
+                f1
+            ),
+
+            "matched_ids": int(
+                len(merged_df)
+            ),
+
+            "ground_truth_count": int(
+                len(ground_truth_df)
+            ),
+
+            "prediction_count": int(
+                len(predictions_df)
+            ),
+
+            "classification_report": report,
+
+            "confusion_matrix": matrix,
+
+            "labels": labels,
+
+            "ground_truth_file": str(
+                DATASET_PATH
+            ),
+
+            "ground_truth_sheet": (
+                "Ground_Truth"
+            ),
+
+            "ground_truth_label_column": (
+                "Issue_Label"
+            ),
         }
 
     except Exception as e:
 
         return {
-            "error": f"Could not read Ground Truth file: {e}",
-            "precision": None,
-            "recall": None,
-            "f1": None,
-            "requirements_evaluated": 0,
-            "report": None,
-            "confusion_matrix": None,
+            "success": False,
+            "error": str(e),
         }
 
-    # Check required columns
-    required_columns = [
-        "ID",
-        "Issue_Label",
-    ]
 
-    missing_columns = [
-        column
-        for column in required_columns
-        if column not in ground_truth.columns
-    ]
+# =========================================================
+# COMPATIBILITY
+# =========================================================
 
-    if missing_columns:
+def evaluate(
+    predictions_path=DEFAULT_PREDICTIONS_PATH,
+):
 
-        return {
-            "error": (
-                "Ground Truth is missing required columns: "
-                + ", ".join(missing_columns)
-            ),
-            "precision": None,
-            "recall": None,
-            "f1": None,
-            "requirements_evaluated": 0,
-            "report": None,
-            "confusion_matrix": None,
-        }
-
-    # Check predictions file
-    predictions_path = "data/predictions.csv"
-
-    if not os.path.exists(predictions_path):
-
-        return {
-            "error": (
-                "Predictions file not found. "
-                "Run the requirements analysis first."
-            ),
-            "precision": None,
-            "recall": None,
-            "f1": None,
-            "requirements_evaluated": 0,
-            "report": None,
-            "confusion_matrix": None,
-        }
-
-    predictions = pd.read_csv(
+    return evaluate_predictions(
         predictions_path
     )
-
-    # Check prediction columns
-    if "ID" not in predictions.columns:
-        return {
-            "error": "Predictions file is missing the 'ID' column."
-        }
-
-    if "Issue_Label" not in predictions.columns:
-        return {
-            "error": (
-                "Predictions file is missing "
-                "'Issue_Label'."
-            )
-        }
-
-    # Match Ground Truth and predictions
-    merged = pd.merge(
-        ground_truth[
-            ["ID", "Issue_Label"]
-        ],
-        predictions[
-            ["ID", "Issue_Label"]
-        ],
-        on="ID",
-        suffixes=(
-            "_true",
-            "_pred",
-        ),
-    )
-
-    if merged.empty:
-
-        return {
-            "error": (
-                "No matching requirement IDs were found "
-                "between Ground Truth and predictions."
-            ),
-            "precision": None,
-            "recall": None,
-            "f1": None,
-            "requirements_evaluated": 0,
-            "report": None,
-            "confusion_matrix": None,
-        }
-
-    y_true = merged["Issue_Label_true"]
-
-    y_pred = merged["Issue_Label_pred"]
-
-    precision = precision_score(
-        y_true,
-        y_pred,
-        average="weighted",
-        zero_division=0,
-    )
-
-    recall = recall_score(
-        y_true,
-        y_pred,
-        average="weighted",
-        zero_division=0,
-    )
-
-    f1 = f1_score(
-        y_true,
-        y_pred,
-        average="weighted",
-        zero_division=0,
-    )
-
-    report = pd.DataFrame(
-        classification_report(
-            y_true,
-            y_pred,
-            output_dict=True,
-            zero_division=0,
-        )
-    ).transpose()
-
-    labels = sorted(
-        set(y_true) | set(y_pred)
-    )
-
-    matrix = confusion_matrix(
-        y_true,
-        y_pred,
-        labels=labels,
-    )
-
-    confusion_df = pd.DataFrame(
-        matrix,
-        index=labels,
-        columns=labels,
-    )
-
-    return {
-        "precision": precision,
-        "recall": recall,
-        "f1": f1,
-        "requirements_evaluated": len(
-            merged
-        ),
-        "report": report,
-        "confusion_matrix": confusion_df,
-        "error": None,
-    }

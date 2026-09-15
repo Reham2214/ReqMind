@@ -6,12 +6,7 @@ import fitz
 from sentence_transformers import SentenceTransformer
 
 
-# =========================
-# Configuration
-# =========================
-
 KB_DIR = Path("knowledge_base")
-PDF_DIR = KB_DIR / "pdfs"
 
 CHROMA_DIR = "chroma_db"
 
@@ -20,26 +15,25 @@ COLLECTION_NAME = "requirements_knowledge"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 
-# =========================
-# Embedding Model
-# =========================
-
 embedding_model = SentenceTransformer(
     EMBEDDING_MODEL
 )
 
 
-# =========================
-# Read PDF
-# =========================
-
-def extract_pdf_text(pdf_path: Path) -> str:
+def extract_pdf_text(
+    pdf_path: Path
+) -> str:
 
     text_parts = []
 
-    document = fitz.open(pdf_path)
+    document = fitz.open(
+        pdf_path
+    )
 
-    for page_number, page in enumerate(document, start=1):
+    for page_number, page in enumerate(
+        document,
+        start=1
+    ):
 
         page_text = page.get_text()
 
@@ -52,47 +46,71 @@ def extract_pdf_text(pdf_path: Path) -> str:
 
     document.close()
 
-    return "\n".join(text_parts)
+    return "\n".join(
+        text_parts
+    )
 
 
-# =========================
-# Read Markdown / Text
-# =========================
-
-def read_text_file(file_path: Path) -> str:
+def read_text_file(
+    file_path: Path
+) -> str:
 
     return file_path.read_text(
         encoding="utf-8"
     )
 
 
-# =========================
-# Read Knowledge File
-# =========================
-
-def read_knowledge_file(file_path: Path) -> str:
+def read_knowledge_file(
+    file_path: Path
+) -> str:
 
     extension = file_path.suffix.lower()
 
     if extension == ".pdf":
+        return extract_pdf_text(
+            file_path
+        )
 
-        return extract_pdf_text(file_path)
-
-    if extension in [".md", ".txt"]:
-
-        return read_text_file(file_path)
+    if extension in [
+        ".md",
+        ".txt",
+    ]:
+        return read_text_file(
+            file_path
+        )
 
     return ""
 
 
-# =========================
-# Chunk Text
-# =========================
+def get_knowledge_files():
+
+    supported_extensions = {
+        ".md",
+        ".txt",
+        ".pdf",
+    }
+
+    files = []
+
+    if not KB_DIR.exists():
+        return files
+
+    for file_path in KB_DIR.rglob("*"):
+
+        if (
+            file_path.is_file()
+            and file_path.suffix.lower()
+            in supported_extensions
+        ):
+            files.append(file_path)
+
+    return sorted(files)
+
 
 def chunk_text(
     text: str,
-    chunk_size: int = 1000,
-    overlap: int = 150
+    chunk_size: int = 1200,
+    overlap: int = 200,
 ):
 
     text = " ".join(
@@ -107,14 +125,14 @@ def chunk_text(
 
         end = start + chunk_size
 
-        chunk = text[start:end].strip()
+        chunk = text[
+            start:end
+        ].strip()
 
         if chunk:
-
             chunks.append(chunk)
 
         if end >= len(text):
-
             break
 
         start = end - overlap
@@ -122,36 +140,11 @@ def chunk_text(
     return chunks
 
 
-# =========================
-# Get Knowledge Files
-# =========================
-
-def get_knowledge_files():
-
-    files = []
-
-    files.extend(
-        KB_DIR.glob("*.md")
-    )
-
-    files.extend(
-        KB_DIR.glob("*.txt")
-    )
-
-    files.extend(
-        PDF_DIR.glob("*.pdf")
-    )
-
-    return files
-
-
-# =========================
-# Build ChromaDB
-# =========================
-
 def build_knowledge_base():
 
-    print("Starting Knowledge Base ingestion...")
+    print(
+        "Starting Knowledge Base ingestion..."
+    )
 
     client = chromadb.PersistentClient(
         path=CHROMA_DIR
@@ -188,36 +181,52 @@ def build_knowledge_base():
         if not text.strip():
 
             print(
-                f"Skipped empty file: {file_path.name}"
+                f"Skipped empty file: "
+                f"{file_path.name}"
             )
 
             continue
 
-        chunks = chunk_text(text)
+        chunks = chunk_text(
+            text
+        )
 
-        for chunk_index, chunk in enumerate(chunks):
+        relative_source = str(
+            file_path.relative_to(
+                KB_DIR
+            )
+        )
+
+        source_type = (
+            "pdf"
+            if file_path.suffix.lower()
+            == ".pdf"
+            else "guideline"
+        )
+
+        for chunk_index, chunk in enumerate(
+            chunks
+        ):
 
             document_id = (
-                f"{file_path.stem}"
+                f"{relative_source}"
                 f"_chunk_{chunk_index}"
                 f"_{counter}"
             )
 
-            documents.append(chunk)
+            documents.append(
+                chunk
+            )
 
-            ids.append(document_id)
-
-            source_type = (
-                "pdf"
-                if file_path.suffix.lower() == ".pdf"
-                else "guideline"
+            ids.append(
+                document_id
             )
 
             metadatas.append(
                 {
-                    "source": file_path.name,
+                    "source": relative_source,
                     "source_type": source_type,
-                    "chunk": chunk_index
+                    "chunk": chunk_index,
                 }
             )
 
@@ -234,32 +243,42 @@ def build_knowledge_base():
         f"{len(documents)} chunks..."
     )
 
-    embeddings = embedding_model.encode(
-        documents,
-        normalize_embeddings=True,
-        show_progress_bar=True
-    ).tolist()
+    embeddings = (
+        embedding_model.encode(
+            documents,
+            normalize_embeddings=True,
+            show_progress_bar=True,
+        )
+        .tolist()
+    )
 
     collection.upsert(
         ids=ids,
         documents=documents,
         embeddings=embeddings,
-        metadatas=metadatas
+        metadatas=metadatas,
     )
 
-    print()
-    print("=" * 60)
-    print("Knowledge Base completed successfully.")
-    print(f"Files processed: {len(files)}")
-    print(f"Chunks stored: {len(documents)}")
-    print(f"Collection: {COLLECTION_NAME}")
     print("=" * 60)
 
+    print(
+        "Knowledge Base completed successfully."
+    )
 
-# =========================
-# Main
-# =========================
+    print(
+        f"Files processed: {len(files)}"
+    )
+
+    print(
+        f"Chunks stored: {len(documents)}"
+    )
+
+    print(
+        f"Collection: {COLLECTION_NAME}"
+    )
+
+    print("=" * 60)
+
 
 if __name__ == "__main__":
-
     build_knowledge_base()

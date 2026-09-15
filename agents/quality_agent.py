@@ -10,6 +10,7 @@ from utils.schemas import (
     QualityAnalysisResult,
 )
 
+
 load_dotenv()
 
 client = OpenAI(
@@ -21,41 +22,54 @@ MODEL = os.getenv(
     "gpt-4o-mini"
 )
 
-# Maximum number of API requests running at the same time.
-MAX_WORKERS = 4
-
 
 SYSTEM_PROMPT = """
 You are the Quality Analysis Agent in ReqMind.
 
-Analyze each software requirement independently.
+Your responsibility is to analyze EACH requirement independently.
 
-Allowed issue labels:
+You ONLY detect these issue types:
 
 1. No Issue
 2. Ambiguity
 3. Incompleteness
 4. Non-verifiable
 
+IMPORTANT:
+
+Do NOT detect:
+- Duplication
+- Conflict
+- Inconsistency
+
+Those issues are handled separately by the Relationship Analysis Agent.
+
 Definitions:
 
 Ambiguity:
-The requirement contains vague or subjective wording that can have multiple interpretations.
+The requirement contains vague, subjective, unclear, or
+multiple-interpretation wording.
+
 Examples:
 - quickly
 - easy
 - user-friendly
 - reasonable
 - modern
+- appropriate
+- efficient
 
 Incompleteness:
-Important information needed to understand or implement the requirement is missing.
+Important information required to understand, implement,
+or test the requirement is missing.
 
 Non-verifiable:
-The requirement is understandable but there is no objective way to determine whether it has been satisfied.
+The requirement is understandable, but there is no objective
+way to determine whether the requirement has been satisfied.
 
 No Issue:
-The requirement is sufficiently clear, complete for its scope, and objectively testable.
+The requirement is sufficiently clear, sufficiently complete
+for its scope, and objectively testable.
 
 Severity:
 
@@ -63,20 +77,25 @@ None:
 No problem.
 
 Minor:
-Small clarification is needed.
+A small clarification is needed.
 
 Major:
-The problem could cause implementation or testing misunderstanding or rework.
+The problem could cause implementation or testing
+misunderstanding or rework.
 
 Critical:
-The problem could cause major security, operational, financial, or system consequences.
+The problem could cause major security, operational,
+financial, or system consequences.
 
-Important:
-Do not classify conflicts, duplication, or cross-requirement inconsistency here.
-Those are handled by another agent.
+Rules:
 
-Return evidence based directly on the requirement text.
-Do not invent information.
+1. Analyze only the provided requirement.
+2. Do not compare it with other requirements.
+3. Do not invent missing information.
+4. Evidence must come directly from the requirement text.
+5. If the requirement has no individual quality problem,
+   return "No Issue".
+6. Return exactly one primary quality issue for the requirement.
 """
 
 
@@ -91,8 +110,9 @@ Requirement ID:
 Requirement:
 {requirement.text}
 
-Analyze this requirement.
+Analyze this requirement according to the Quality Analysis Agent rules.
 """
+
 
     response = client.beta.chat.completions.parse(
         model=MODEL,
@@ -121,16 +141,19 @@ def analyze_requirements(
             analyses=[]
         )
 
-    # Run multiple requirements in parallel.
-    # executor.map preserves the original requirement order.
+    max_workers = min(
+        4,
+        len(requirements)
+    )
+
     with ThreadPoolExecutor(
-        max_workers=MAX_WORKERS
+        max_workers=max_workers
     ) as executor:
 
         analyses = list(
             executor.map(
                 analyze_requirement,
-                requirements,
+                requirements
             )
         )
 
