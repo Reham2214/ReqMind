@@ -1,150 +1,383 @@
 import os
-from concurrent.futures import ThreadPoolExecutor
-from itertools import combinations
-
 from dotenv import load_dotenv
 from openai import OpenAI
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 
 from utils.schemas import (
     Requirement,
-    RelationshipIssue,
     RelationshipAnalysisResult,
 )
 
-
 load_dotenv()
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
-)
-
-MODEL = os.getenv(
-    "OPENAI_MODEL",
-    "gpt-4o-mini"
-)
-
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-
-embedding_model = SentenceTransformer(
-    EMBEDDING_MODEL
-)
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 
 SYSTEM_PROMPT = """
 You are the Relationship Analysis Agent in ReqMind.
 
-Your responsibility is to compare TWO software requirements.
+Your task is to compare software requirements with each other and
+identify relationship issues.
 
-You detect ONLY:
+You MUST use exactly these relationship labels:
 
 1. No Issue
 2. Duplication
-3. Conflict
-4. Inconsistency
+3. Inconsistency
+4. Conflict
 
-Definitions:
+==================================================
+IMPORTANT
+==================================================
 
-Duplication:
-Both requirements express the same or substantially overlapping
-behavior.
+Compare requirements based on their MEANING, not only their wording.
 
-Conflict:
-The requirements impose mutually incompatible behaviors,
-constraints, rules, or values.
+Two requirements can be Duplication even if they use different
+words or sentence structures.
 
-Inconsistency:
-The requirements refer to concepts, rules, values, or behaviors
-that do not agree consistently, even if they are not directly
-mutually exclusive.
+Do not require exact textual similarity.
 
-No Issue:
-The two requirements can coexist without a meaningful relationship
-problem.
+==================================================
+LABEL 1: DUPLICATION
+==================================================
 
-Rules:
+Use "Duplication" when two requirements describe substantially the
+same functional behavior, even if they are written differently.
 
-1. Compare only the two provided requirements.
-2. Do not use information that is not present in the requirements.
-3. Do not invent missing information.
-4. Explain exactly why the relationship exists.
-5. Evidence must reference the provided requirement IDs.
-6. Return "No Issue" when there is no meaningful relationship problem.
-"""
+Compare:
 
+- Actor
+- Action
+- Object
+- Purpose
+- Condition
+- Expected behavior
 
-def find_similar_pairs(
-    requirements: list[Requirement],
-    similarity_threshold: float = 0.55,
-) -> list[tuple[Requirement, Requirement]]:
+If the core functionality is the same, classify as Duplication.
 
-    if len(requirements) < 2:
-        return []
+Equivalent wording should NOT prevent Duplication.
 
-    texts = [
-        requirement.text
-        for requirement in requirements
-    ]
+Examples:
 
-    embeddings = embedding_model.encode(
-        texts,
-        normalize_embeddings=True,
-        show_progress_bar=False,
-    )
+"The system shall allow users to reset their password using their
+registered email address."
 
-    similarity_matrix = cosine_similarity(
-        embeddings
-    )
+AND
 
-    pairs = []
+"The system shall provide users with a password reset function
+through their registered email address."
 
-    for i, j in combinations(
-        range(len(requirements)),
-        2
-    ):
+-> Duplication
 
-        similarity = similarity_matrix[i][j]
+Both describe the same password-reset functionality through the
+registered email address.
 
-        if similarity >= similarity_threshold:
+--------------------------------------------------
 
-            pairs.append(
-                (
-                    requirements[i],
-                    requirements[j],
-                )
-            )
+"The system shall allow customers to search for products by product
+name."
 
-    return pairs
+AND
 
+"The system shall enable customers to find products by entering a
+product name."
 
-def analyze_pair(
-    requirement_a: Requirement,
-    requirement_b: Requirement,
-) -> RelationshipIssue:
+-> Duplication
 
-    user_prompt = f"""
+"search" and "find" express the same behavior in this context.
+
+--------------------------------------------------
+
+"The system shall send an email notification when an order is
+successfully placed."
+
+AND
+
+"After an order is placed successfully, the system shall email the
+customer an order confirmation."
+
+-> Duplication
+
+Both require an email to be sent after successful order placement.
+
+--------------------------------------------------
+
+"The system shall allow administrators to deactivate user accounts."
+
+AND
+
+"Administrators shall be able to disable user accounts when
+necessary."
+
+-> Duplication
+
+"deactivate" and "disable" describe the same account action.
+
+--------------------------------------------------
+
+"The system shall encrypt customer passwords before storing them in
+the database."
+
+AND
+
+"Customer passwords shall be encrypted before they are stored in
+the database."
+
+-> Duplication
+
+They specify the same security behavior.
+
+==================================================
+DUPLICATION RULES
+==================================================
+
+Treat the following kinds of wording differences as potentially
+equivalent:
+
+allow / enable / support
+
+search / find
+
+send an email / email / send notification
+
+deactivate / disable
+
+encrypt before storing / encrypted before storage
+
+store / save
+
+display / show
+
+remove / delete
+
+authenticate / verify identity
+
+Do NOT classify as Duplication merely because requirements discuss
+the same general feature.
+
+Example:
+
+"The system shall allow users to reset their password."
+
+AND
+
+"The system shall send an email when a password is reset."
+
+-> No Issue
+
+These are related but describe different behaviors.
+
+==================================================
+LABEL 2: CONFLICT
+==================================================
+
+Use "Conflict" when two requirements directly demand incompatible
+conditions, values, or behaviors.
+
+Examples:
+
 Requirement A:
-
-ID:
-{requirement_a.id}
-
-Text:
-{requirement_a.text}
-
+"The maximum file size shall be 100 MB."
 
 Requirement B:
+"The maximum file size shall be 500 MB."
 
-ID:
-{requirement_b.id}
+-> Conflict
 
-Text:
-{requirement_b.text}
+Another example:
 
+Requirement A:
+"The system shall retain user records for 30 days."
 
-Compare the two requirements.
+Requirement B:
+"The system shall delete user records after 7 days."
+
+-> Conflict
+
+Conflict means the requirements cannot both be satisfied as stated.
+
+==================================================
+LABEL 3: INCONSISTENCY
+==================================================
+
+Use "Inconsistency" when requirements do not agree in terminology,
+rules, assumptions, or behavior, but the disagreement is not a
+directly incompatible value or condition.
+
+Examples can include:
+
+Requirement A refers to "customers" while another requirement
+refers to the same actor as "clients" in a way that creates an
+unclear identity distinction.
+
+Or:
+
+One requirement describes a process as requiring administrator
+approval while another describes the same process without the
+required approval, without explicitly specifying whether the
+difference is intentional.
+
+Use this label carefully.
+
+Do NOT use Inconsistency when the requirements are simply different
+features.
+
+Do NOT use Inconsistency when the requirements are clearly
+incompatible numeric or logical conditions. Those are Conflict.
+
+==================================================
+LABEL 4: NO ISSUE
+==================================================
+
+Use "No Issue" when the requirements:
+
+- Describe different functionality
+- Can coexist
+- Do not duplicate each other
+- Do not contradict each other
+- Do not create a meaningful inconsistency
+
+Related requirements are not automatically problematic.
+
+==================================================
+COMPARISON PROCESS
+==================================================
+
+For every relevant pair:
+
+1. Identify the actor.
+2. Identify the action.
+3. Identify the object.
+4. Identify conditions.
+5. Identify expected behavior.
+6. Compare the actual meaning.
+7. Determine whether the pair is:
+   - Duplication
+   - Conflict
+   - Inconsistency
+   - No Issue
+
+IMPORTANT:
+
+Semantic similarity is more important than exact word matching.
+
+Do not miss duplication simply because synonyms are used.
+
+==================================================
+CALIBRATION EXAMPLES FROM THE REQMIND DATASET
+==================================================
+
+PAIR 1:
+
+A:
+"The system shall allow users to reset their password using their
+registered email address."
+
+B:
+"The system shall provide users with a password reset function
+through their registered email address."
+
+Result:
+Duplication
+
+--------------------------------------------------
+
+PAIR 2:
+
+A:
+"The system shall allow customers to search for products by product
+name."
+
+B:
+"The system shall enable customers to find products by entering a
+product name."
+
+Result:
+Duplication
+
+--------------------------------------------------
+
+PAIR 3:
+
+A:
+"The system shall send an email notification when an order is
+successfully placed."
+
+B:
+"After an order is placed successfully, the system shall email the
+customer an order confirmation."
+
+Result:
+Duplication
+
+--------------------------------------------------
+
+PAIR 4:
+
+A:
+"The system shall allow administrators to deactivate user accounts."
+
+B:
+"Administrators shall be able to disable user accounts when
+necessary."
+
+Result:
+Duplication
+
+--------------------------------------------------
+
+PAIR 5:
+
+A:
+"The system shall encrypt customer passwords before storing them in
+the database."
+
+B:
+"Customer passwords shall be encrypted before they are stored in the
+database."
+
+Result:
+Duplication
+
+==================================================
+OUTPUT
+==================================================
+
+Return a structured RelationshipAnalysisResult.
+
+For every detected relationship issue, include:
+
+- requirement_id
+- related_requirement_id
+- issue_label
+- severity
+- explanation
+- evidence
+
+For Duplication, explain the shared functionality.
+
+For Conflict, explain the incompatible condition or value.
+
+For Inconsistency, explain the disagreement.
+
+Do not invent relationships that are not supported by the text.
 """
 
+
+def analyze_relationships(
+    requirements: list[Requirement],
+) -> RelationshipAnalysisResult:
+
+    if not requirements:
+        return RelationshipAnalysisResult(issues=[])
+
+    requirements_text = "\n\n".join(
+        [
+            f"Requirement ID: {requirement.id}\n"
+            f"Requirement: {requirement.text}"
+            for requirement in requirements
+        ]
+    )
 
     response = client.beta.chat.completions.parse(
         model=MODEL,
@@ -155,53 +388,24 @@ Compare the two requirements.
             },
             {
                 "role": "user",
-                "content": user_prompt,
+                "content": (
+                    "Compare the following software requirements.\n\n"
+                    "Pay special attention to semantic duplication. "
+                    "Requirements with different wording can still "
+                    "describe exactly the same functionality.\n\n"
+                    "Do not rely on exact word matching.\n\n"
+                    f"{requirements_text}"
+                ),
             },
         ],
-        response_format=RelationshipIssue,
+        response_format=RelationshipAnalysisResult,
     )
 
-    return response.choices[0].message.parsed
+    result = response.choices[0].message.parsed
 
-
-def analyze_relationships(
-    requirements: list[Requirement],
-) -> RelationshipAnalysisResult:
-
-    candidate_pairs = find_similar_pairs(
-        requirements
-    )
-
-    if not candidate_pairs:
-        return RelationshipAnalysisResult(
-            issues=[]
+    if result is None:
+        raise ValueError(
+            "Relationship Agent returned no structured result."
         )
 
-    max_workers = min(
-        4,
-        len(candidate_pairs)
-    )
-
-    with ThreadPoolExecutor(
-        max_workers=max_workers
-    ) as executor:
-
-        results = list(
-            executor.map(
-                lambda pair: analyze_pair(
-                    pair[0],
-                    pair[1],
-                ),
-                candidate_pairs,
-            )
-        )
-
-    issues = [
-        result
-        for result in results
-        if result.issue_label != "No Issue"
-    ]
-
-    return RelationshipAnalysisResult(
-        issues=issues
-    )
+    return result
