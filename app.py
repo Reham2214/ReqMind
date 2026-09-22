@@ -324,6 +324,15 @@ if (
         for result in results
         if result.issue_label == "No Issue"
     )
+    from collections import Counter
+
+    issue_counts = Counter(
+       result.issue_label
+        for result in results
+       )
+
+    st.subheader("Issue Distribution")
+    st.write(dict(issue_counts))
 
     col1, col2, col3 = st.columns(3)
 
