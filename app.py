@@ -940,19 +940,17 @@ if (
 
         st.markdown(
             f"""
-            <span
-                class="issue-badge"
-                style="
-                    background-color: {issue_color}20;
-                    color: {issue_color};
-                "
-            >
+            <div style="
+                display: inline-block;
+                padding: 0.35rem 0.8rem;
+                border-radius: 999px;
+                font-weight: 600;
+                font-size: 0.9rem;
+                background-color: {issue_color}20;
+                color: {issue_color};
+            ">
                 {selected_result.issue_label}
-            </span>
-
-            <span class="severity-badge">
-                Severity: {selected_result.severity}
-            </span>
+            </div>
             """,
             unsafe_allow_html=True,
         )
