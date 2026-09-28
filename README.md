@@ -1,6 +1,6 @@
 # ReqMind – AI-Powered Software Requirements Analysis
 
-This project was developed as part of the **Agentic AI Engineering Bootcamp** at the **Saudi Digital Academy (SDA)**.
+This project was developed as part of the **Agentic AI Bootcamp** at the **Saudi Digital Academy (SDA)**.
 
 ## Project Overview
 
