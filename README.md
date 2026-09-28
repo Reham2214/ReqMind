@@ -12,6 +12,28 @@ The system analyzes uploaded requirement documents and detects issues such as am
 
 **Requirement Extraction → Quality Analysis → Consistency & Conflict Analysis → Recommendations → Final Report**
 
+
+### Analysis Progress
+
+The analysis progress interface shows the different stages of the ReqMind analysis workflow as the requirements are processed.
+
+<img width="1600" height="900" alt="Analysis Progress" src="https://github.com/user-attachments/assets/2d1bd719-2f50-47f2-b560-9009e3e3dba5" />
+
+
+### ReqMind Dashboard
+
+The dashboard provides an overview of the analysis results, including the number of detected issues for each issue label.
+
+<img width="1600" height="900" alt="ReqMind Dashboard" src="https://github.com/user-attachments/assets/b312b697-4484-4268-8883-757d617357f3" />
+
+
+### Requirement Analysis
+
+The requirement analysis view provides detailed information for an individual requirement, including the detected issue, explanation, evidence, recommendation, and improved requirement.
+
+<img width="1600" height="900" alt="Result" src="https://github.com/user-attachments/assets/374e7bb5-c6d2-4618-94a3-62c459ca9c8e" />
+
+
 ## Features
 
 * Upload requirements in **PDF, DOCX, TXT, and CSV** formats.
@@ -22,7 +44,6 @@ The system analyzes uploaded requirement documents and detects issues such as am
   * Complete
   * Consistent
   * Verifiable
-
 * Detect:
 
   * Ambiguity
@@ -53,6 +74,7 @@ The system analyzes uploaded requirement documents and detects issues such as am
 * **python-docx** – DOCX processing
 * **pandas** – Data processing
 * **openpyxl** – Excel file processing
+* **ReportLab** – PDF report generation
 
 ### RAG & NLP
 
@@ -63,6 +85,7 @@ The system analyzes uploaded requirement documents and detects issues such as am
 ### Application
 
 * **Streamlit** – Web interface
+* **Plotly** – Data visualization
 * **python-dotenv** – Environment variable management
 
 ## Setup & Installation
@@ -71,6 +94,7 @@ The system analyzes uploaded requirement documents and detects issues such as am
 
 ```bash
 git clone <repository-url>
+
 cd ReqMind
 ```
 
