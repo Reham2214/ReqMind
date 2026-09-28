@@ -1,5 +1,7 @@
 # ReqMind – AI-Powered Software Requirements Analysis
 
+This project was developed as part of the **Agentic AI Engineering Bootcamp** at the **Saudi Digital Academy (SDA)**.
+
 ## Project Overview
 
 ReqMind is a multi-agent AI system that analyzes software requirements and identifies common quality issues. It helps developers, requirements engineers, and business analysts improve requirements before development begins.
