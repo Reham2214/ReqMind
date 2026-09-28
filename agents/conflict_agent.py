@@ -100,33 +100,6 @@ customer an order confirmation."
 
 Both require an email to be sent after successful order placement.
 
---------------------------------------------------
-
-"The system shall allow administrators to deactivate user accounts."
-
-AND
-
-"Administrators shall be able to disable user accounts when
-necessary."
-
--> Duplication
-
-"deactivate" and "disable" describe the same account action.
-
---------------------------------------------------
-
-"The system shall encrypt customer passwords before storing them in
-the database."
-
-AND
-
-"Customer passwords shall be encrypted before they are stored in
-the database."
-
--> Duplication
-
-They specify the same security behavior.
-
 ==================================================
 DUPLICATION RULES
 ==================================================
@@ -262,82 +235,6 @@ IMPORTANT:
 Semantic similarity is more important than exact word matching.
 
 Do not miss duplication simply because synonyms are used.
-
-==================================================
-CALIBRATION EXAMPLES FROM THE REQMIND DATASET
-==================================================
-
-PAIR 1:
-
-A:
-"The system shall allow users to reset their password using their
-registered email address."
-
-B:
-"The system shall provide users with a password reset function
-through their registered email address."
-
-Result:
-Duplication
-
---------------------------------------------------
-
-PAIR 2:
-
-A:
-"The system shall allow customers to search for products by product
-name."
-
-B:
-"The system shall enable customers to find products by entering a
-product name."
-
-Result:
-Duplication
-
---------------------------------------------------
-
-PAIR 3:
-
-A:
-"The system shall send an email notification when an order is
-successfully placed."
-
-B:
-"After an order is placed successfully, the system shall email the
-customer an order confirmation."
-
-Result:
-Duplication
-
---------------------------------------------------
-
-PAIR 4:
-
-A:
-"The system shall allow administrators to deactivate user accounts."
-
-B:
-"Administrators shall be able to disable user accounts when
-necessary."
-
-Result:
-Duplication
-
---------------------------------------------------
-
-PAIR 5:
-
-A:
-"The system shall encrypt customer passwords before storing them in
-the database."
-
-B:
-"Customer passwords shall be encrypted before they are stored in the
-database."
-
-Result:
-Duplication
 
 ==================================================
 OUTPUT

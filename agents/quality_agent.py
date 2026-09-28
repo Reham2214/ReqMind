@@ -159,110 +159,6 @@ Reason:
 "important transactions" does not define which transactions are
 considered important.
 
-"The application should be scalable."
--> Ambiguity
-
-Reason:
-"scalable" does not define what type or level of scalability is
-intended.
-
-"The system shall work just like the previous one, but on a new
-platform."
--> Ambiguity
-
-Reason:
-"the previous one" is an undefined reference and "just like" does
-not specify which behavior must be replicated.
-
-"The system shall delete the user and send the notification within
-one month."
--> Ambiguity
-
-Reason:
-The timing relationship and intended meaning of "within one month"
-are unclear without a defined reference point.
-
-"The report shall be displayed in a similar format to the previous
-report."
--> Ambiguity
-
-Reason:
-"similar" and "previous report" do not define the required format
-objectively.
-
-"The system shall grant access to authorized users when appropriate."
--> Ambiguity
-
-Reason:
-"when appropriate" does not define the condition under which access
-should be granted.
-
-"The system shall delete inactive user accounts after a reasonable
-period."
--> Ambiguity
-
-Reason:
-"reasonable period" does not define the intended time period.
-
-"The system shall display the user’s name in the appropriate format."
--> Ambiguity
-
-Reason:
-"appropriate format" does not identify which name format is required.
-
-"The system shall allow administrators to access sensitive information
-when necessary."
--> Ambiguity
-
-Reason:
-"when necessary" does not define the condition that makes access
-necessary.
-
-"The system shall display a suitable message when the operation is
-completed."
--> Ambiguity
-
-Reason:
-"suitable message" does not define what message or characteristics
-are intended.
-
-"The system shall position the navigation controls in a convenient
-location."
--> Ambiguity
-
-Reason:
-"convenient location" has no defined interpretation.
-
-"The system shall notify the appropriate personnel in case of an
-emergency."
--> Ambiguity
-
-Reason:
-"appropriate personnel" does not identify which personnel should
-receive the notification.
-
-"The report shall emphasize significant values in the results."
--> Ambiguity
-
-Reason:
-"significant values" does not define which values are considered
-significant or how significance is determined.
-
-"The application shall synchronize data with the external system
-regularly."
--> Ambiguity
-
-Reason:
-"regularly" does not define the intended synchronization frequency.
-
-"The system shall stop the machine if the temperature becomes unsafe."
--> Ambiguity
-
-Reason:
-"unsafe" does not define the temperature condition at which the
-machine must stop.
-
-
 ==================================================
 NO ISSUE CALIBRATION
 ==================================================
@@ -281,50 +177,6 @@ behavior is sufficiently specific and objectively testable:
 "The product must support Mozilla Firefox 1.0 and above."
 -> No Issue
 
-"The audit report shall include the total number of recycled parts
-used in the estimate."
--> No Issue
-
-"The ratings shall be from a scale of 1-10."
--> No Issue
-
-"The product shall record meeting entries."
--> No Issue
-
-"The system shall allow the security officer to create a new user
-account."
--> No Issue
-
-"The system shall allow the data manager to delete a checklist
-resource."
--> No Issue
-
-"The system shall allow a visitor to build an occurrence selection
-filter."
--> No Issue
-
-"The data transaction between client and server must be encrypted
-using SSL technology."
--> No Issue
-
-"The product shall be available for use 24 hours per day,
-365 days per year."
--> No Issue
-
-"The search radius shall be between 1 and 30 miles."
--> No Issue
-
-"The product shall be able to handle 10 000 concurrent users within
-2 years of the initial launch."
--> No Issue
-
-"The product will notify employees of meeting invitations."
--> No Issue
-
-"The website shall be capable of supporting 100 000 customers."
--> No Issue
-
-
 ==================================================
 INCOMPLETENESS
 ==================================================
@@ -341,24 +193,6 @@ Typical examples:
 -> Incompleteness
 
 "The application shall allow users to upload profile pictures."
--> Incompleteness
-
-"The system shall support bulk import of user records."
--> Incompleteness
-
-"The platform shall integrate with third-party payment gateways."
--> Incompleteness
-
-"The application shall support multi-language localization."
--> Incompleteness
-
-"The system shall back up database records regularly."
--> Incompleteness
-
-"The web interface shall adapt to mobile screens."
--> Incompleteness
-
-"The platform shall manage cryptographic encryption keys securely."
 -> Incompleteness
 
 
@@ -379,28 +213,6 @@ queries."
 -> Non-verifiable
 
 "The software architecture must be highly scalable for future growth."
--> Non-verifiable
-
-"The database queries shall execute fast across all tables."
--> Non-verifiable
-
-"The cloud infrastructure must be secure against modern cyber threats."
--> Non-verifiable
-
-"The system code must be clean, maintainable, and well-documented."
--> Non-verifiable
-
-"The e-commerce recommendation engine must offer good suggestions."
--> Non-verifiable
-
-"The desktop application should use minimal memory resources."
--> Non-verifiable
-
-"The reporting module shall render complex charts smoothly without
-lagging."
--> Non-verifiable
-
-"The payment gateway integration must be highly available and stable."
 -> Non-verifiable
 
 
