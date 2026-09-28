@@ -1,5 +1,21 @@
+import io
+from collections import Counter
+
 import pandas as pd
 import streamlit as st
+import plotly.express as px
+
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    PageBreak,
+)
 
 from graph import graph
 from utils.file_parser import extract_text
@@ -13,6 +29,130 @@ st.set_page_config(
     page_title="ReqMind",
     page_icon="",
     layout="wide",
+)
+
+
+# ==========================================================
+# Custom Styling
+# ==========================================================
+
+st.markdown(
+    """
+    <style>
+
+    .main {
+        background-color: #f7f9fc;
+    }
+
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+        max-width: 1400px;
+    }
+
+    .reqmind-header {
+        padding: 1.4rem 1.6rem;
+        border-radius: 16px;
+        background: linear-gradient(
+            135deg,
+            #172554 0%,
+            #1e3a8a 50%,
+            #2563eb 100%
+        );
+        color: white;
+        margin-bottom: 1.5rem;
+    }
+
+    .reqmind-header h1 {
+        margin-bottom: 0.3rem;
+        font-size: 2.2rem;
+    }
+
+    .reqmind-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 1rem;
+    }
+
+    .metric-card {
+        background: white;
+        padding: 1rem 1.2rem;
+        border-radius: 14px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+    }
+
+    .section-card {
+        background: white;
+        padding: 1.3rem;
+        border-radius: 16px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+        margin-bottom: 1rem;
+    }
+
+    .issue-badge {
+        display: inline-block;
+        padding: 0.35rem 0.8rem;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-right: 0.5rem;
+        line-height: 1.2;
+    }
+
+    .severity-badge {
+        display: inline-block;
+        padding: 0.35rem 0.8rem;
+        border-radius: 999px;
+        background-color: #eef2ff;
+        color: #3730a3;
+        font-weight: 600;
+        font-size: 0.9rem;
+        line-height: 1.2;
+    }
+
+    .requirement-box {
+        background-color: #f8fafc;
+        border-left: 5px solid #2563eb;
+        padding: 1rem 1.1rem;
+        border-radius: 8px;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        color: #0f172a;
+    }
+
+    .recommendation-box {
+        background-color: #eff6ff;
+        border-left: 5px solid #3b82f6;
+        padding: 1rem 1.1rem;
+        border-radius: 8px;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        color: #0f172a;
+    }
+
+    .improved-box {
+        background-color: #f0fdf4;
+        border-left: 5px solid #16a34a;
+        padding: 1rem 1.1rem;
+        border-radius: 8px;
+        line-height: 1.6;
+        color: #0f172a;
+    }
+
+    .source-box {
+        background-color: transparent;
+        border: none;
+        padding: 0;
+        border-radius: 0;
+        margin-bottom: 0.5rem;
+        color: white;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -31,13 +171,17 @@ if "analysis_completed" not in st.session_state:
 # Header
 # ==========================================================
 
-st.title("ReqMind")
-
-st.write(
-    "AI-powered software requirements analysis system"
+st.markdown(
+    """
+    <div class="reqmind-header">
+        <h1>ReqMind</h1>
+        <p>
+            AI-powered software requirements analysis system
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
-
-st.divider()
 
 
 # ==========================================================
@@ -175,11 +319,8 @@ if uploaded_file is not None:
             )
 
             extraction_status = st.empty()
-
             quality_status = st.empty()
-
             relationship_status = st.empty()
-
             recommendation_status = st.empty()
 
             extraction_status.info(
@@ -288,6 +429,221 @@ if uploaded_file is not None:
 
 
 # ==========================================================
+# PDF Generator
+# ==========================================================
+
+def create_pdf(results):
+
+    buffer = io.BytesIO()
+
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=18 * mm,
+        leftMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        "ReqMindTitle",
+        parent=styles["Title"],
+        alignment=TA_CENTER,
+        fontSize=20,
+        leading=24,
+        spaceAfter=12,
+    )
+
+    subtitle_style = ParagraphStyle(
+        "ReqMindSubtitle",
+        parent=styles["Normal"],
+        alignment=TA_CENTER,
+        fontSize=10,
+        leading=14,
+        textColor=colors.grey,
+        spaceAfter=20,
+    )
+
+    heading_style = ParagraphStyle(
+        "ReqMindHeading",
+        parent=styles["Heading2"],
+        fontSize=13,
+        leading=16,
+        spaceBefore=8,
+        spaceAfter=7,
+    )
+
+    body_style = ParagraphStyle(
+        "ReqMindBody",
+        parent=styles["BodyText"],
+        fontSize=9.5,
+        leading=14,
+        spaceAfter=8,
+    )
+
+    small_style = ParagraphStyle(
+        "ReqMindSmall",
+        parent=styles["BodyText"],
+        fontSize=8.5,
+        leading=12,
+        textColor=colors.grey,
+    )
+
+    story = []
+
+    story.append(
+        Paragraph(
+            "ReqMind",
+            title_style,
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "Improved Software Requirements Report",
+            subtitle_style,
+        )
+    )
+
+    story.append(
+        Paragraph(
+            f"Total analyzed requirements: {len(results)}",
+            body_style,
+        )
+    )
+
+    story.append(Spacer(1, 8))
+
+    for index, result in enumerate(results):
+
+        story.append(
+            Paragraph(
+                f"Requirement {result.requirement_id}",
+                heading_style,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                "<b>Original Requirement</b>",
+                body_style,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                str(result.requirement).replace(
+                    "&",
+                    "&amp;"
+                ).replace(
+                    "<",
+                    "&lt;"
+                ).replace(
+                    ">",
+                    "&gt;"
+                ),
+                body_style,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Classification:</b> "
+                f"{result.issue_label}",
+                body_style,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Severity:</b> "
+                f"{result.severity}",
+                body_style,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                "<b>Recommendation</b>",
+                body_style,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                str(result.recommendation).replace(
+                    "&",
+                    "&amp;"
+                ).replace(
+                    "<",
+                    "&lt;"
+                ).replace(
+                    ">",
+                    "&gt;"
+                ),
+                body_style,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                "<b>Improved Requirement</b>",
+                body_style,
+            )
+        )
+
+        story.append(
+            Paragraph(
+                str(
+                    result.improved_requirement
+                ).replace(
+                    "&",
+                    "&amp;"
+                ).replace(
+                    "<",
+                    "&lt;"
+                ).replace(
+                    ">",
+                    "&gt;"
+                ),
+                body_style,
+            )
+        )
+
+        if result.sources:
+
+            story.append(
+                Paragraph(
+                    "<b>Knowledge Sources</b>",
+                    body_style,
+                )
+            )
+
+            for source in result.sources:
+
+                story.append(
+                    Paragraph(
+                        f"• {str(source)}",
+                        small_style,
+                    )
+                )
+
+        if index < len(results) - 1:
+
+            story.append(
+                PageBreak()
+            )
+
+    document.build(story)
+
+    buffer.seek(0)
+
+    return buffer.getvalue()
+
+
+# ==========================================================
 # Analysis Results
 # ==========================================================
 
@@ -302,11 +658,11 @@ if (
     st.divider()
 
     st.subheader(
-        f"Analysis Results ({len(results)} Requirements)"
+        "ReqMind Dashboard"
     )
 
     # ------------------------------------------------------
-    # Summary Metrics
+    # Summary Calculations
     # ------------------------------------------------------
 
     total_requirements = len(
@@ -324,40 +680,188 @@ if (
         for result in results
         if result.issue_label == "No Issue"
     )
-    from collections import Counter
 
     issue_counts = Counter(
-       result.issue_label
+        result.issue_label
         for result in results
-       )
+    )
 
-    st.subheader("Issue Distribution")
-    st.write(dict(issue_counts))
+    issue_percentage = (
+        (issues_detected / total_requirements) * 100
+        if total_requirements
+        else 0
+    )
 
-    col1, col2, col3 = st.columns(3)
+    no_issue_percentage = (
+        (no_issues / total_requirements) * 100
+        if total_requirements
+        else 0
+    )
 
-    with col1:
+    # ------------------------------------------------------
+    # Dashboard Metrics
+    # ------------------------------------------------------
+
+    metric_col1, metric_col2, metric_col3, metric_col4 = (
+        st.columns(4)
+    )
+
+    with metric_col1:
 
         st.metric(
-            "Requirements",
+            "Extracted Requirements",
             total_requirements,
         )
 
-    with col2:
+    with metric_col2:
 
         st.metric(
             "Issues Detected",
             issues_detected,
+            f"{issue_percentage:.1f}%"
         )
 
-    with col3:
+    with metric_col3:
 
         st.metric(
             "No Issues",
             no_issues,
+            f"{no_issue_percentage:.1f}%"
+        )
+
+    with metric_col4:
+
+        st.metric(
+            "Issue Types",
+            len(issue_counts),
         )
 
     st.divider()
+
+    # ------------------------------------------------------
+    # Issue Distribution
+    # ------------------------------------------------------
+
+    st.subheader(
+        "Requirement Classification"
+    )
+
+    chart_col1, chart_col2 = st.columns(
+        [1.5, 1]
+    )
+
+    chart_data = pd.DataFrame(
+        {
+            "Classification": list(
+                issue_counts.keys()
+            ),
+            "Count": list(
+                issue_counts.values()
+            ),
+        }
+    )
+
+    color_map = {
+        "No Issue": "#22c55e",
+        "Ambiguity": "#f59e0b",
+        "Incompleteness": "#ef4444",
+        "Non-verifiable": "#8b5cf6",
+        "Duplication": "#3b82f6",
+        "Conflict": "#dc2626",
+        "Inconsistency": "#eab308",
+    }
+
+    with chart_col1:
+
+        fig = px.bar(
+            chart_data,
+            x="Classification",
+            y="Count",
+            color="Classification",
+            color_discrete_map=color_map,
+            text="Count",
+            title="Issues by Classification",
+        )
+
+        fig.update_traces(
+            textposition="outside"
+        )
+
+        fig.update_layout(
+            showlegend=False,
+            height=400,
+            margin=dict(
+                l=20,
+                r=20,
+                t=60,
+                b=20,
+            ),
+            xaxis_title="",
+            yaxis_title="Number of Requirements",
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True,
+        )
+
+    with chart_col2:
+
+        pie_fig = px.pie(
+            chart_data,
+            names="Classification",
+            values="Count",
+            hole=0.55,
+            color="Classification",
+            color_discrete_map=color_map,
+            title="Overall Distribution",
+        )
+
+        pie_fig.update_layout(
+            height=400,
+            margin=dict(
+                l=10,
+                r=10,
+                t=60,
+                b=10,
+            ),
+        )
+
+        st.plotly_chart(
+            pie_fig,
+            use_container_width=True,
+        )
+
+    # ------------------------------------------------------
+    # Classification Filter
+    # ------------------------------------------------------
+
+    st.subheader(
+        "Explore Requirements"
+    )
+
+    filter_options = [
+        "All Classifications"
+    ] + sorted(
+        issue_counts.keys()
+    )
+
+    selected_filter = st.selectbox(
+        "Filter requirements by classification",
+        filter_options,
+    )
+
+    if selected_filter == "All Classifications":
+
+        filtered_results = results
+
+    else:
+
+        filtered_results = [
+            result
+            for result in results
+            if result.issue_label == selected_filter
+        ]
 
     # ------------------------------------------------------
     # Requirement Selector
@@ -368,200 +872,209 @@ if (
             f"{result.requirement_id} — "
             f"{result.requirement}"
         )
-        for result in results
+        for result in filtered_results
     ]
 
-    selected_requirement = st.selectbox(
-        "Select a requirement",
-        requirement_options,
-    )
+    if not requirement_options:
 
-    selected_index = (
-        requirement_options.index(
-            selected_requirement
-        )
-    )
-
-    selected_result = results[
-        selected_index
-    ]
-
-    # ------------------------------------------------------
-    # Selected Requirement
-    # ------------------------------------------------------
-
-    st.subheader(
-        selected_result.requirement_id
-    )
-
-    st.write(
-        "### Requirement"
-    )
-
-    st.info(
-        selected_result.requirement
-    )
-
-    # ------------------------------------------------------
-    # Issue + Severity
-    # ------------------------------------------------------
-
-    result_col1, result_col2 = st.columns(2)
-
-    with result_col1:
-
-        st.write(
-            "**Issue**"
-        )
-
-        st.write(
-            selected_result.issue_label
-        )
-
-    with result_col2:
-
-        st.write(
-            "**Severity**"
-        )
-
-        st.write(
-            selected_result.severity
-        )
-
-    st.divider()
-
-    # ------------------------------------------------------
-    # Explanation
-    # ------------------------------------------------------
-
-    st.write(
-        "### Explanation"
-    )
-
-    st.write(
-        selected_result.explanation
-    )
-
-    # ------------------------------------------------------
-    # Evidence
-    # ------------------------------------------------------
-
-    st.write(
-        "### Evidence"
-    )
-
-    if selected_result.evidence:
-
-        st.write(
-            selected_result.evidence
+        st.info(
+            "No requirements match the selected classification."
         )
 
     else:
 
-        st.write(
-            "No specific evidence provided."
+        selected_requirement = st.selectbox(
+            "Select a requirement",
+            requirement_options,
         )
 
-    # ------------------------------------------------------
-    # Recommendation
-    # ------------------------------------------------------
+        selected_index = (
+            requirement_options.index(
+                selected_requirement
+            )
+        )
 
-    st.write(
-        "### Recommendation"
-    )
+        selected_result = filtered_results[
+            selected_index
+        ]
 
-    st.write(
-        selected_result.recommendation
-    )
+        st.divider()
 
-    # ------------------------------------------------------
-    # Improved Requirement
-    # ------------------------------------------------------
+        # --------------------------------------------------
+        # Selected Requirement
+        # --------------------------------------------------
 
-    st.write(
-        "### Improved Requirement"
-    )
+        st.subheader(
+            selected_result.requirement_id
+        )
 
-    st.success(
-        selected_result.improved_requirement
-    )
+        # --------------------------------------------------
+        # Requirement
+        # --------------------------------------------------
 
-    # ------------------------------------------------------
-    # Knowledge Sources
-    # ------------------------------------------------------
+        st.write(
+            "### Requirement"
+        )
 
-    st.write(
-        "### Knowledge Sources"
-    )
+        st.markdown(
+            f"""
+            <div class="requirement-box">
+                {selected_result.requirement}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    if selected_result.sources:
+        # --------------------------------------------------
+        # Classification
+        # --------------------------------------------------
 
-        for source in selected_result.sources:
+        st.write(
+            "### Classification"
+        )
 
-            st.write(
-                f"- {source}"
+        issue_color = color_map.get(
+            selected_result.issue_label,
+            "#64748b",
+        )
+
+        st.markdown(
+            f"""
+            <span
+                class="issue-badge"
+                style="
+                    background-color: {issue_color}20;
+                    color: {issue_color};
+                "
+            >
+                {selected_result.issue_label}
+            </span>
+
+            <span class="severity-badge">
+                Severity: {selected_result.severity}
+            </span>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # --------------------------------------------------
+        # Explanation
+        # --------------------------------------------------
+
+        st.write(
+            "### Explanation"
+        )
+
+        st.write(
+            selected_result.explanation
+        )
+
+        # --------------------------------------------------
+        # Evidence
+        # --------------------------------------------------
+
+        st.write(
+            "### Evidence"
+        )
+
+        if selected_result.evidence:
+
+            st.info(
+                selected_result.evidence
             )
 
-    else:
+        else:
+
+            st.write(
+                "No specific evidence provided."
+            )
+
+        # --------------------------------------------------
+        # Recommendation
+        # --------------------------------------------------
 
         st.write(
-            "No knowledge sources were retrieved."
+            "### Recommendation"
         )
 
+        st.markdown(
+            f"""
+            <div class="recommendation-box">
+                {selected_result.recommendation}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # --------------------------------------------------
+        # Improved Requirement
+        # --------------------------------------------------
+
+        st.write(
+            "### Improved Requirement"
+        )
+
+        st.markdown(
+            f"""
+            <div class="improved-box">
+                {selected_result.improved_requirement}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # --------------------------------------------------
+        # Knowledge Sources
+        # --------------------------------------------------
+
+        st.write(
+            "### Knowledge Base / Sources"
+        )
+
+        if selected_result.sources:
+
+            for source in selected_result.sources:
+
+                st.markdown(
+                    f"""
+                    <div class="source-box">
+                        {source}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+        else:
+
+            st.write(
+                "No knowledge sources were retrieved."
+            )
+
     # ======================================================
-    # Download Results
+    # PDF Export
     # ======================================================
 
     st.divider()
 
     st.subheader(
-        "Download Analysis Results"
+        "Export Improved Requirements"
     )
 
     st.write(
-        "Export the complete analysis as a CSV file "
-        "for easy review, sharing, documentation, "
-        "and further processing."
+        "Download a PDF containing the analyzed requirements, "
+        "classifications, recommendations, and improved requirements."
     )
 
-    # ------------------------------------------------------
-    # Prepare Download Data
-    # ------------------------------------------------------
+    all_results_for_pdf = st.session_state.analysis_results
 
-    download_data = []
-
-    for result in results:
-
-        download_data.append(
-            {
-                "Requirement ID": result.requirement_id,
-                "Requirement": result.requirement,
-                "Issue Label": result.issue_label,
-                "Severity": result.severity,
-                "Explanation": result.explanation,
-                "Evidence": result.evidence,
-                "Recommendation": result.recommendation,
-                "Improved Requirement": result.improved_requirement,
-                "Sources": ", ".join(
-                    result.sources
-                ),
-            }
-        )
-
-    download_df = pd.DataFrame(
-        download_data
-    )
-
-    csv_data = download_df.to_csv(
-        index=False
-    ).encode(
-        "utf-8-sig"
+    pdf_data = create_pdf(
+        all_results_for_pdf
     )
 
     st.download_button(
-        label="Download Analysis Results",
-        data=csv_data,
-        file_name="reqmind_analysis.csv",
-        mime="text/csv",
+        label="Download Improved Requirements (PDF)",
+        data=pdf_data,
+        file_name="reqmind_improved_requirements.pdf",
+        mime="application/pdf",
         use_container_width=True,
     )
